@@ -5,7 +5,21 @@ A small full-stack search over property listings ingested from multiple MLS feed
 - **Backend:** Python, FastAPI
 - **Frontend:** React, TypeScript (Vite)
 
-> _How to run and API reference: to be added as the project is built._
+> _API reference and frontend setup: to be added as the project is built._
+
+## Running the backend tests
+
+Run all backend commands from `backend/`: pytest and Ruff read their configuration (`pytest.ini`, `ruff.toml`) from there.
+
+```
+cd backend
+python -m venv .venv
+.venv\Scripts\activate          # Windows; on macOS/Linux: source .venv/bin/activate
+pip install -r requirements.txt
+pytest                          # tests
+ruff check .                    # lint
+ruff format .                   # format
+```
 
 ## Data observations & decisions
 
@@ -40,7 +54,7 @@ Within each pair, the address formatting ("St" / "Street", "Apt" / "Unit"), pric
 
 **Observation:** `id` is unique per source but not across sources.
 
-**Decision:** a listing's unique key is `(source, id)`. This is also used as the React list key and as the final tie-breaker when sorting.
+**Decision:** a listing's unique key is `(source, id)`. This is also used as the React list key and as the final tie-breaker when sorting (see [Ranking and ties](#ranking-and-ties)).
 
 ### Status
 
@@ -142,6 +156,59 @@ A new listing scores 1.0, a 60-day-old one 0.5 and a 120-day-old one 0.25. It ne
 - **`targetBudget` must be a positive integer if provided.** It is omitted (`None`) to mean "no budget"; `0` would divide by zero and negative values are meaningless, so both are rejected as invalid input.
 - **Scores are not rounded during ranking,** only for display, to avoid creating artificial ties.
 
+## Search pipeline
+
+A search runs four steps, each a small, separately tested function:
+
+```
+SearchRequest (validated) → filter_listings → rank → paginate → Page
+```
+
+| Module          | Responsibility                                                          |
+| --------------- | ----------------------------------------------------------------------- |
+| `models.py`     | `Listing` and `Status`: immutable (frozen) data                         |
+| `loader.py`     | Reads and validates the JSON feed file once, at startup                 |
+| `validation.py` | Shared field checks (non-empty string, integer in range)                |
+| `filters.py`    | `SearchFilter` and `filter_listings`                                    |
+| `scoring.py`    | The relevance score for one listing                                    |
+| `ranking.py`    | Scores many listings and sorts them, including tie-breaking             |
+| `pagination.py` | `Page` and `paginate`                                                   |
+| `search.py`     | `SearchRequest` and `search()`, which runs the steps above              |
+| `errors.py`     | `InvalidSearchError`: every kind of invalid user input raises this type |
+
+**Validate at the boundary, trust inside.** All user input is checked once, when a `SearchFilter` or `SearchRequest` is created; an invalid object cannot exist. The functions after that assume valid input. Every validation failure raises `InvalidSearchError`, so the API can turn exactly that type into a 400 response without catching unrelated errors (which are bugs, and should be 500s).
+
+**Pure and deterministic.** `listings` and `today` are passed in, never read from a file or the system clock inside the pipeline, so the same request always gives the same result and tests need no mocking.
+
+### Filters
+
+| Filter        | Rule                                                                 |
+| ------------- | -------------------------------------------------------------------- |
+| `minPrice`    | `price >= minPrice` (inclusive). Non-negative integer.               |
+| `maxPrice`    | `price <= maxPrice` (inclusive). Non-negative integer, `>= minPrice`. `minPrice == maxPrice` means an exact price. |
+| `minBedrooms` | `bedrooms >= minBedrooms` (inclusive). Non-negative integer.          |
+| `city`        | Equal after trimming and casefolding both sides; not a partial match (`"Test"` doesn't match `"Testville"`). |
+| `keyword`     | Case-insensitive substring of `description` (see [Keyword search](#keyword-search-vs-meaning)). |
+
+An omitted filter means "no filter". A filter that is present but blank (`""` or whitespace) is rejected rather than ignored, so the frontend must leave empty fields out of the request. Only `active` listings are ever returned. Filtering runs before scoring, so excluded listings are never scored.
+
+### Ranking and ties
+
+Results are sorted by:
+
+1. score, highest first
+2. listed date, newest first
+3. `source`, then `id`, ascending
+
+The last step makes the order unique and fully deterministic, which is what makes stateless pagination consistent (see below). It means exact ties prefer `MLS_A` over `MLS_B`. That preference is explicit rather than hidden in input order, and exact ties on both score and date are rare; a stable hash of `source/id` would remove it if it mattered.
+
+### Pagination
+
+- Pages are 1-based. `page >= 1`; `pageSize` is between 1 and 100 (default 10).
+- A page beyond the last one returns no items with accurate totals, not an error, because results can change between requests. The UI uses `totalPages` to disable "Next", so users don't normally reach it.
+- Zero results is reported as page 1 of 1 with no items. A city (or any filter) with no matches is an empty result, not an error.
+- **No server-side state or cache is needed for "next page".** Every request reruns the same deterministic pipeline, so page 2 is exactly the next slice of the ranking page 1 came from. The exceptions are data changing between requests and the date changing at midnight (recency shifts slightly); cursor pagination would address both (see [Future work](#future-work)).
+
 ## Future work
 
 - **Cross-feed deduplication.** Group records into one Property containing its source listings, and show one card per home with each feed's price.
@@ -153,6 +220,7 @@ A new listing scores 1.0, a 60-day-old one 0.5 and a 120-day-old one 0.25. It ne
   - **Precompute what doesn't depend on the request.** Normalised city and description (trimmed, casefolded) are the same for every search, so they can be computed once at ingestion and stored alongside the originals, which are kept for display. The score cannot be precomputed: it depends on the user's `targetBudget` and on today's date.
   - **Top-k instead of a full sort.** A page needs only the best `page × pageSize` results; `heapq.nlargest` finds them in O(m log k) instead of sorting all m matches in O(m log m). The benefit shrinks for deep pages.
   - **Cursor (keyset) pagination.** Because the sort key (score, listed date, source, id) is unique and deterministic, the API can return a cursor ("continue after this key") instead of a page number. Results stay stable when listings change between requests, and deep pages cost the same as early ones.
+  - **Caching.** If ranking became expensive, the ranked list could be cached per (filters, budget, day) and pages sliced from it. `SearchFilter` is frozen and therefore hashable, so it can be part of the cache key. Not worth the memory and invalidation complexity at this size.
 - **Dependency lock file.** `requirements.txt` pins only the direct dependencies. Add a full lock file (e.g. uv or pip-tools) for fully reproducible installs.
 
 ## Clarifying questions

@@ -1,17 +1,12 @@
-import datetime
 from dataclasses import dataclass, field
+from datetime import date
 
 from errors import InvalidSearchError
-from filters import SearchFilter
+from filters import SearchFilter, filter_listings
 from models import Listing
-from scoring import score
+from pagination import Page, paginate
+from ranking import rank
 from validation import require_int_in_range
-
-
-@dataclass(frozen=True, kw_only=True)
-class ScoredListing:
-    listing: Listing
-    score: float
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -31,21 +26,7 @@ class SearchRequest:
             raise InvalidSearchError(str(e)) from e
 
 
-def rank(
-    listings: list[Listing], today: datetime.date, target_budget: int | None
-) -> list[ScoredListing]:
-    scored = [
-        ScoredListing(listing=listing, score=score(listing, today, target_budget))
-        for listing in listings
-    ]
-    scored.sort(key=_ranking_key)
-    return scored
-
-
-def _ranking_key(scored_listing: ScoredListing) -> tuple:
-    return (
-        -scored_listing.score,
-        -scored_listing.listing.listed_date.toordinal(),
-        scored_listing.listing.source,
-        scored_listing.listing.id,
-    )
+def search(listings: list[Listing], request: SearchRequest, today: date) -> Page:
+    filtered_listings = filter_listings(listings, request.filters)
+    ranked_listings = rank(filtered_listings, today, request.target_budget)
+    return paginate(ranked_listings, request.page, request.page_size)

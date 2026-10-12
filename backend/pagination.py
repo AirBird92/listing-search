@@ -15,8 +15,8 @@ class Page:
 
 def paginate(listings: list[ScoredListing], page: int, page_size: int) -> Page:
     """Returns one page of listings.
-    
-    'page' must be ≥ 1 (validated by SearchRequest); 
+
+    'page' must be ≥ 1 (validated by SearchRequest);
     A page past the end returns no items, with accurate totals.
     """
     total_results = len(listings)

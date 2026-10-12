@@ -28,6 +28,14 @@ Within each pair, the address formatting ("St" / "Street", "Apt" / "Unit"), pric
 
 **Why:** dedup isn't in the requirements, and it raises several open questions (see [Future work](#future-work)) that would delay the core features. The search pipeline is built as separate steps (filter → score → sort → paginate) so a dedupe step can be added later without a rewrite.
 
+### Required fields and invalid records
+
+**Observation:** the spec doesn't say which fields may be missing. The sample data is complete.
+
+**Decision:** every field is required. A record with a missing field, an unparseable value or an unknown status fails loading with a clear error that names the listing (`source/id`). Empty strings are treated as missing (e.g. an empty `city` would never match a city search). Prices are truncated to whole dollars.
+
+**Why:** the data is loaded once at startup, so failing loudly surfaces bad data immediately instead of serving wrong results. With real feeds, fields not used by any feature (e.g. `sqft`, `latitude`) could become optional (`None` = unknown, never a fake default like `0`), and bad records could be skipped and logged instead of failing the whole load.
+
 ### Listing identity
 
 **Observation:** `id` is unique per source but not across sources.
@@ -95,3 +103,4 @@ Within each pair, the address formatting ("St" / "Street", "Apt" / "Unit"), pric
 3. Should keyword search match whole words or substrings, and match one keyword or several? (Assumed: one case-insensitive substring.)
 4. Do the feeds provide structured attributes (e.g. pet policy) that we could filter on instead of the description?
 5. Are price filters inclusive (`minPrice <= price <= maxPrice`)?
+6. Which fields can feeds omit, and should one bad record fail the whole load or be skipped? (Assumed: all fields required; fail loudly.)

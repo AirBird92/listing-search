@@ -1,0 +1,36 @@
+[
+  {
+    "id": "123",
+    "source": "test_source",
+    "address": "123 Main St",
+    "city": "Testville",
+    "state": "TS",
+    "zip": "12345",
+    "price": 250000,
+    "bedrooms": 3,
+    "bathrooms": 2.5,
+    "sqft": 1500,
+    "latitude": 38.8951,
+    "longitude": -77.0364,
+    "listedDate": "2023-01-01",
+    "status": "active",
+    "description": "A lovely home."
+  },
+  {
+    "id": "124",
+    "source": "test_source",
+    "address": "124 Main St",
+    "city": "Testville",
+    "state": "TS",
+    "zip": "12345",
+    "price": 250000,
+    "bedrooms": 3,
+    "bathrooms": 2.5,
+    "sqft": 1500,
+    "latitude": 38.8951,
+    "longitude": -77.0364,
+    "listedDate": "2023-01-01",
+    "status": "active",
+    "description": "A lovely home."
+  }
+]

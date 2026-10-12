@@ -5,7 +5,7 @@ import pytest
 
 from errors import InvalidSearchError
 from filters import SearchFilter
-from search import ScoredListing, SearchRequest, _ranking_key, rank
+from ranking import ScoredListing, SearchRequest, _ranking_key, rank
 
 TODAY = date(2026, 10, 12)
 

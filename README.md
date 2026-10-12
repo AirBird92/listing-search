@@ -46,9 +46,9 @@ Within each pair, the address formatting ("St" / "Street", "Apt" / "Unit"), pric
 
 **Observation:** listings can be `active`, `pending` or `sold` (A7 is `pending`). The requirements don't say which should be searchable.
 
-**Decision:** status is a filter on the API with a backend default of `active` only. `pending` and `sold` are excluded unless requested. The UI exposes it so the user can widen it.
+**Decision:** search returns `active` listings only. `pending` and `sold` listings are always excluded, and there is no status filter.
 
-**Why:** buyers mostly want homes they can still buy, and a pending sale usually can't be. The default lives in the backend so every API client gets the same behaviour, not just this UI.
+**Why:** buyers mostly want homes they can still buy, and a pending sale usually can't be. A user-facing status filter isn't in the requirements; it would be a small addition (an optional filter defaulting to `active`), and the rule lives in the backend so every API client gets the same behaviour.
 
 ### Keyword search vs. meaning
 
@@ -98,7 +98,7 @@ Within each pair, the address formatting ("St" / "Street", "Apt" / "Unit"), pric
 
 ## Clarifying questions
 
-1. Should `pending` and `sold` listings be searchable, and what should the default be? (Assumed: `active` only by default.)
+1. Should `pending` and `sold` listings be searchable, and what should the default be? (Assumed: `active` only, not user-configurable.)
 2. Are duplicate listings across feeds expected to be merged? If so, which feed's price and date should win?
 3. Should keyword search match whole words or substrings, and match one keyword or several? (Assumed: one case-insensitive substring.)
 4. Do the feeds provide structured attributes (e.g. pet policy) that we could filter on instead of the description?

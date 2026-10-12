@@ -1,0 +1,3 @@
+[lint]
+# We use guard clauses (if ...: return False) for filters; SIM103 would collapse the last one.
+ignore = ["SIM103"]

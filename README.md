@@ -5,7 +5,7 @@ A small full-stack search over property listings ingested from multiple MLS feed
 - **Backend:** Python, FastAPI
 - **Frontend:** React, TypeScript (Vite)
 
-> _How to run, API reference and scoring approach: to be added as the project is built._
+> _How to run and API reference: to be added as the project is built._
 
 ## Data observations & decisions
 
@@ -88,6 +88,60 @@ Within each pair, the address formatting ("St" / "Street", "Apt" / "Unit"), pric
 
 **Why:** a pure function is predictable and needs no mocking. This is the same idea as injecting a `Clock` in Java.
 
+## Scoring
+
+Results are ranked by a relevance score from 0 to 100, combining how well the price fits the user's `targetBudget` with how recently the listing went live.
+
+```
+score = 100 × (W_BUDGET × budget_fit + W_RECENCY × recency)      if targetBudget is given
+score = 100 × recency                                             otherwise
+```
+
+| Constant          | Value   | Meaning                                       |
+| ----------------- | ------- | --------------------------------------------- |
+| `W_BUDGET`        | 0.7     | Weight of budget fit                          |
+| `W_RECENCY`       | 0.3     | Weight of recency                             |
+| `UNDER_TOLERANCE` | 0.50    | Budget fit reaches 0 at 50% **under** budget  |
+| `OVER_TOLERANCE`  | 0.25    | Budget fit reaches 0 at 25% **over** budget   |
+| `HALF_LIFE_DAYS`  | 60      | Recency halves every 60 days                  |
+
+### Budget fit (0–1)
+
+Uses the signed relative distance from the budget, so a $50k gap matters more on a $200k budget than on a $2M one:
+
+```
+d = (price − targetBudget) / targetBudget          negative = under, positive = over
+
+budget_fit = max(0, 1 − |d| / UNDER_TOLERANCE)    if d <= 0
+budget_fit = max(0, 1 −  d  / OVER_TOLERANCE)     if d > 0
+```
+
+Going over budget is penalised twice as fast as coming in under it: most buyers can't stretch upward, but are happy to pay less. Example for a $300k budget:
+
+| Price      | $200k | $270k | $300k | $330k | $450k |
+| ---------- | ----- | ----- | ----- | ----- | ----- |
+| budget_fit | 0.33  | 0.80  | 1.00  | 0.60  | 0.00  |
+
+### Recency (0–1)
+
+Exponential decay with a half-life:
+
+```
+age_days = max(0, today − listedDate)
+recency  = 0.5 ^ (age_days / HALF_LIFE_DAYS)
+```
+
+A new listing scores 1.0, a 60-day-old one 0.5 and a 120-day-old one 0.25. It never reaches 0, so older listings still rank among themselves. A listing dated in the future (bad data) is treated as listed today rather than scoring above 1.
+
+### Why these choices
+
+- **Price outweighs recency (0.7 / 0.3).** Price is what decides whether a buyer can act on a listing at all. Recency is a tie-breaker between similar fits: newer listings are less likely to be under offer.
+- **A 60-day half-life.** Assumption: a listing being on the market for one to two months is normal, so a 76-day-old listing that fits the budget well should still rank high. A 30-day half-life would push everything older than two months below 0.25.
+- **No budget means recency only,** rather than treating budget fit as 0 or 1. Either constant would shift every score equally without adding information.
+- **Scores are relative within one search.** A 60 with a budget and a 60 without one are not comparable, and they don't need to be.
+- **`targetBudget` must be a positive integer if provided.** It is omitted (`None`) to mean "no budget"; `0` would divide by zero and negative values are meaningless, so both are rejected as invalid input.
+- **Scores are not rounded during ranking,** only for display, to avoid creating artificial ties.
+
 ## Future work
 
 - **Cross-feed deduplication.** Group records into one Property containing its source listings, and show one card per home with each feed's price.
@@ -104,3 +158,4 @@ Within each pair, the address formatting ("St" / "Street", "Apt" / "Unit"), pric
 4. Do the feeds provide structured attributes (e.g. pet policy) that we could filter on instead of the description?
 5. Are price filters inclusive (`minPrice <= price <= maxPrice`)?
 6. Which fields can feeds omit, and should one bad record fail the whole load or be skipped? (Assumed: all fields required; fail loudly.)
+7. Is there a known weighting between price fit and recency, or a typical days-on-market figure for these markets? (Assumed: 70/30, and one to two months on market is normal.)

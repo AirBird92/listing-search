@@ -1,0 +1,2 @@
+class InvalidSearchError(ValueError):
+    pass

@@ -148,6 +148,11 @@ A new listing scores 1.0, a 60-day-old one 0.5 and a 120-day-old one 0.25. It ne
   - Match key: location (lat/long) alone isn't enough, because units in the same building share coordinates. Combine it with unit-level fields (sqft, bedrooms, bathrooms). Feeds may geocode slightly differently, so use a distance threshold rather than exact or rounded equality.
   - Open questions: which price and date drive filtering and scoring, how to resolve conflicting fields (e.g. zip), and how to build a stable property ID.
 - **Structured attributes from free text.** Extract fields such as `petsAllowed: yes | no | unknown` once, at ingestion time (rules or an LLM), and filter on them. Doing this per search would be slow, costly and non-deterministic. Better still, check whether the MLS feeds already provide a structured pet-policy field.
+- **Scaling.** The current design keeps all listings in memory and, per request, scans every listing, scores the matches, fully sorts them and slices out one page. That is the right trade-off for a small fixed dataset; at millions of listings:
+  - **Filtering:** move listings into a database with indexes on price, bedrooms and city, and use a full-text index (e.g. PostgreSQL full-text search or Elasticsearch/OpenSearch) for keywords instead of a substring scan of every description.
+  - **Precompute what doesn't depend on the request.** Normalised city and description (trimmed, casefolded) are the same for every search, so they can be computed once at ingestion and stored alongside the originals, which are kept for display. The score cannot be precomputed: it depends on the user's `targetBudget` and on today's date.
+  - **Top-k instead of a full sort.** A page needs only the best `page × pageSize` results; `heapq.nlargest` finds them in O(m log k) instead of sorting all m matches in O(m log m). The benefit shrinks for deep pages.
+  - **Cursor (keyset) pagination.** Because the sort key (score, listed date, source, id) is unique and deterministic, the API can return a cursor ("continue after this key") instead of a page number. Results stay stable when listings change between requests, and deep pages cost the same as early ones.
 - **Dependency lock file.** `requirements.txt` pins only the direct dependencies. Add a full lock file (e.g. uv or pip-tools) for fully reproducible installs.
 
 ## Clarifying questions

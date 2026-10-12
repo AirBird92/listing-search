@@ -22,7 +22,7 @@ def recency(listed_date: date, today: date) -> float:
     return 0.5 ** ((today - listed_date).days / HALF_LIFE_DAYS)
 
 
-def score(listing: Listing, today: date, target_budget: int | None = None) -> float:
+def score(listing: Listing, today: date, target_budget: int | None) -> float:
     recency_score = recency(listing.listed_date, today)
     if target_budget is None:
         return 100 * recency_score

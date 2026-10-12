@@ -1,9 +1,6 @@
-from dataclasses import replace
-
 import pytest
 
-from filters import InvalidFilterError, SearchFilter, filter_listings
-from models import Status
+from filters import InvalidSearchError, SearchFilter, filter_listings
 
 
 @pytest.mark.parametrize(
@@ -38,32 +35,32 @@ def test_valid_search_filter(kwargs):
         ),
         pytest.param(
             {"min_price": -100000},
-            "min_price must be a non-negative integer",
+            "min_price must be an integer",
             id="min_price_negative",
         ),
         pytest.param(
             {"max_price": -500000},
-            "max_price must be a non-negative integer",
+            "max_price must be an integer",
             id="max_price_negative",
         ),
         pytest.param(
             {"min_price": "100"},
-            "min_price must be a non-negative integer",
+            "min_price must be an integer",
             id="min_price_not_integer",
         ),
         pytest.param(
             {"min_price": 1.5},
-            "min_price must be a non-negative integer",
+            "min_price must be an integer",
             id="min_price_float",
         ),
         pytest.param(
             {"min_bedrooms": -2},
-            "min_bedrooms must be a non-negative integer",
+            "min_bedrooms must be an integer",
             id="min_bedrooms_negative",
         ),
         pytest.param(
             {"min_bedrooms": True},
-            "min_bedrooms must be a non-negative integer",
+            "min_bedrooms must be an integer",
             id="min_bedrooms_not_integer",
         ),
         pytest.param({"city": ""}, "city must be a non-empty string", id="city_empty"),
@@ -86,73 +83,8 @@ def test_valid_search_filter(kwargs):
     ],
 )
 def test_invalid_search_filter(kwargs, message):
-    with pytest.raises(InvalidFilterError, match=message):
+    with pytest.raises(InvalidSearchError, match=message):
         SearchFilter(**kwargs)
-
-
-@pytest.fixture
-def listings(valid_listing):
-    # id | status  | price   | beds | city            | description
-    # a  | active  | 200,000 | 2    | "Testville"     | no "lovely"
-    # b  | active  | 300,000 | 3    | "  testville "  | "Lovely" (capitalised)
-    # c  | pending | 300,000 | 3    | "Testville"     | "lovely": same as b, but not active
-    # d  | active  | 450,000 | 4    | "Springfield"   | "LOVELY" (upper case)
-    # e  | sold    | 200,000 | 2    | "Testville"     | "lovely": same as a, but not active
-    # f  | active  | 600,000 | 5    | "Springfield"   | no "lovely"
-    # Prices and bedrooms are distinct round values so min/max boundaries are easy to hit.
-    # Inactive listings are interleaved so order-preservation is actually tested.
-    return [
-        replace(
-            valid_listing,
-            id="a",
-            price=200_000,
-            bedrooms=2,
-            city="Testville",
-            description="Cozy condo near the park.",
-        ),
-        replace(
-            valid_listing,
-            id="b",
-            price=300_000,
-            bedrooms=3,
-            city="  testville ",
-            description="Lovely family home with a big yard.",
-        ),
-        replace(
-            valid_listing,
-            id="c",
-            status=Status.PENDING,
-            price=300_000,
-            bedrooms=3,
-            city="Testville",
-            description="Lovely home, sale pending.",
-        ),
-        replace(
-            valid_listing,
-            id="d",
-            price=450_000,
-            bedrooms=4,
-            city="Springfield",
-            description="Spacious house with LOVELY views.",
-        ),
-        replace(
-            valid_listing,
-            id="e",
-            status=Status.SOLD,
-            price=200_000,
-            bedrooms=2,
-            city="Testville",
-            description="Lovely starter home, already sold.",
-        ),
-        replace(
-            valid_listing,
-            id="f",
-            price=600_000,
-            bedrooms=5,
-            city="Springfield",
-            description="Luxury estate with a pool.",
-        ),
-    ]
 
 
 @pytest.mark.parametrize(

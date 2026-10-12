@@ -90,4 +90,4 @@ def test_score(valid_listing, price, listed_date, budget, expected):
 )
 def test_score_without_budget(valid_listing, price, listed_date, expected):
     listing = replace(valid_listing, price=price, listed_date=listed_date)
-    assert score(listing, TODAY) == pytest.approx(expected)
+    assert score(listing, TODAY, None) == pytest.approx(expected)

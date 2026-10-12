@@ -1,13 +1,10 @@
 from dataclasses import dataclass
 
+from errors import InvalidSearchError
 from models import Listing, Status
 from validation import require_non_empty_string, require_non_negative_int
 
 SEARCHABLE_STATUSES = frozenset({Status.ACTIVE})
-
-
-class InvalidFilterError(ValueError):
-    pass
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -31,14 +28,14 @@ class SearchFilter:
             if self.keyword is not None:
                 require_non_empty_string(self.keyword, "keyword")
         except ValueError as e:
-            raise InvalidFilterError(str(e)) from e
+            raise InvalidSearchError(str(e)) from e
 
         if (
             self.min_price is not None
             and self.max_price is not None
             and self.min_price > self.max_price
         ):
-            raise InvalidFilterError("min_price cannot be greater than max_price")
+            raise InvalidSearchError("min_price cannot be greater than max_price")
 
 
 def filter_listings(

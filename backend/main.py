@@ -11,7 +11,10 @@ from models import Listing
 from schemas import SearchQuery, SearchResponse
 from search import search
 
-app = FastAPI()
+app = FastAPI(
+    allow_origins=["http://localhost:5173"],
+    allow_methods=["GET"],
+)
 
 LISTINGS = load(DATA_FILE)
 

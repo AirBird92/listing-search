@@ -3,6 +3,7 @@ from typing import Annotated
 
 from fastapi import Depends, FastAPI, Query, Request
 from fastapi.exceptions import RequestValidationError
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from errors import InvalidSearchError
@@ -11,7 +12,9 @@ from models import Listing
 from schemas import SearchQuery, SearchResponse
 from search import search
 
-app = FastAPI(
+app = FastAPI()
+app.add_middleware(
+    CORSMiddleware,
     allow_origins=["http://localhost:5173"],
     allow_methods=["GET"],
 )

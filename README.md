@@ -5,21 +5,25 @@ A small full-stack search over property listings ingested from multiple MLS feed
 - **Backend:** Python, FastAPI
 - **Frontend:** React, TypeScript (Vite)
 
-> _API reference and frontend setup: to be added as the project is built._
+> _Frontend setup: to be added as the project is built._
 
-## Running the backend tests
+## Running the backend
 
-Run all backend commands from `backend/`: pytest and Ruff read their configuration (`pytest.ini`, `ruff.toml`) from there.
+Run all backend commands from `backend/`: pytest, Ruff and uvicorn read their configuration and modules from there.
 
 ```
 cd backend
 python -m venv .venv
 .venv\Scripts\activate          # Windows; on macOS/Linux: source .venv/bin/activate
 pip install -r requirements.txt
+
+uvicorn main:app --reload       # API on http://localhost:8000, interactive docs at /docs
 pytest                          # tests
 ruff check .                    # lint
 ruff format .                   # format
 ```
+
+The listings are loaded from `backend/sample_listings.json` once at startup. If a record is invalid, the server refuses to start and names the listing.
 
 ## Data observations & decisions
 
@@ -176,6 +180,8 @@ SearchRequest (validated) → filter_listings → rank → paginate → Page
 | `pagination.py` | `Page` and `paginate`                                                   |
 | `search.py`     | `SearchRequest` and `search()`, which runs the steps above              |
 | `errors.py`     | `InvalidSearchError`: every kind of invalid user input raises this type |
+| `schemas.py`    | The API contract: `SearchQuery` (request) and `SearchResponse` (response) |
+| `main.py`       | FastAPI app: routes, the listings dependency, error handlers, CORS      |
 
 **Validate at the boundary, trust inside.** All user input is checked once, when a `SearchFilter` or `SearchRequest` is created; an invalid object cannot exist. The functions after that assume valid input. Every validation failure raises `InvalidSearchError`, so the API can turn exactly that type into a 400 response without catching unrelated errors (which are bugs, and should be 500s).
 
@@ -209,6 +215,94 @@ The last step makes the order unique and fully deterministic, which is what make
 - A page beyond the last one returns no items with accurate totals, not an error, because results can change between requests. The UI uses `totalPages` to disable "Next", so users don't normally reach it.
 - Zero results is reported as page 1 of 1 with no items. A city (or any filter) with no matches is an empty result, not an error.
 - **No server-side state or cache is needed for "next page".** Every request reruns the same deterministic pipeline, so page 2 is exactly the next slice of the ranking page 1 came from. The exceptions are data changing between requests and the date changing at midnight (recency shifts slightly); cursor pagination would address both (see [Future work](#future-work)).
+
+## API
+
+### `GET /api/listings`
+
+Searches active listings and returns one page of ranked results. All parameters are optional query parameters, named in camelCase.
+
+| Parameter      | Type    | Default | Rules                                                     |
+| -------------- | ------- | ------- | --------------------------------------------------------- |
+| `minPrice`     | integer | none    | ≥ 0                                                       |
+| `maxPrice`     | integer | none    | ≥ 0 and ≥ `minPrice`                                      |
+| `minBedrooms`  | integer | none    | ≥ 0                                                       |
+| `city`         | string  | none    | Not blank; exact match ignoring case and surrounding spaces |
+| `keyword`      | string  | none    | Not blank; case-insensitive substring of the description  |
+| `targetBudget` | integer | none    | ≥ 1; ranks results (see [Scoring](#scoring)), never filters |
+| `page`         | integer | 1       | ≥ 1                                                       |
+| `pageSize`     | integer | 10      | 1–100                                                     |
+
+An omitted parameter means "no filter" (or the default). A blank value such as `city=` is rejected, so clients should leave empty fields out. Unknown or misspelled parameters (e.g. `minprice`) are rejected rather than silently ignored.
+
+Example: `GET /api/listings?city=springfield&targetBudget=450000&pageSize=2`
+
+```json
+{
+  "results": [
+    {
+      "id": "A1",
+      "source": "MLS_A",
+      "address": "123 Main St, Apt 4B",
+      "city": "Springfield",
+      "state": "VA",
+      "zip": "22150",
+      "price": 450000,
+      "bedrooms": 2,
+      "bathrooms": 1.5,
+      "sqft": 980,
+      "latitude": 38.7893,
+      "longitude": -77.1873,
+      "listedDate": "2026-08-29",
+      "status": "active",
+      "description": "Bright top-floor condo near shops and transit. Pet friendly.",
+      "score": 88.04537554123173
+    }
+  ],
+  "page": 1,
+  "pageSize": 2,
+  "totalResults": 4,
+  "totalPages": 2
+}
+```
+
+(One of the two results is shown.)
+
+- Results are in ranked order; clients must display them as received and not re-sort.
+- `score` is unrounded (0–100). Rounding is left to the client, e.g. one decimal place in the UI.
+- `listedDate` is an ISO date (`YYYY-MM-DD`).
+- `(source, id)` uniquely identifies a result.
+
+The response is a separate model (`SearchResponse`) rather than the internal dataclasses, so renaming a domain field can't silently change the API, and every key is consistently camelCase.
+
+### Errors
+
+Every invalid request returns **400** with a single message:
+
+```json
+{ "detail": "min_price cannot be greater than max_price" }
+```
+
+| Cause                                      | Example `detail`                                                |
+| ------------------------------------------ | --------------------------------------------------------------- |
+| Wrong type                                 | `minPrice: Input should be a valid integer, unable to parse ...` |
+| Unknown parameter                          | `minprice: Extra inputs are not permitted`                      |
+| Rule violation                             | `page_size must be an integer between 1 and 100`                |
+
+FastAPI's default for type errors is a 422 with a list of error objects. It is converted to the same 400 format so clients handle one error shape. A search with no matches, such as an unknown city, is **not** an error: it returns 200 with empty `results` and `totalResults: 0`. Errors in the server's own output are bugs and return 500.
+
+Known limitations:
+
+- Type errors use the URL's parameter names (`minPrice`), while rule errors use the internal names (`min_price`). Translating the internal names with the same camelCase conversion would make them consistent.
+- Only the first invalid parameter is reported.
+
+### `GET /api/health`
+
+Returns `{"status": "ok"}`.
+
+### CORS
+
+Browser requests are allowed from the frontend's origin, `http://localhost:5173` (Vite's dev server), for `GET` only. The allowed origin is listed explicitly rather than using `*`.
 
 ## Future work
 

@@ -155,6 +155,7 @@ A new listing scores 1.0, a 60-day-old one 0.5 and a 120-day-old one 0.25. It ne
 - **Scores are relative within one search.** A 60 with a budget and a 60 without one are not comparable, and they don't need to be.
 - **`targetBudget` must be a positive integer if provided.** It is omitted (`None`) to mean "no budget"; `0` would divide by zero and negative values are meaningless, so both are rejected as invalid input.
 - **Scores are not rounded during ranking,** only for display, to avoid creating artificial ties.
+- **`targetBudget` ranks but never filters.** Listings far outside the budget still appear, with a low score, unless the user also sets `maxPrice`; excluding them is what the price filters are for. For example, every sample listing is at least 33% over a $300k budget, beyond `OVER_TOLERANCE`, so all of them get a budget fit of 0. Their scores then come from recency alone (`30 × recency`, roughly 15–20) and they are ordered newest first. With a $450k budget, the same data ranks as expected: A1 ($450k) scores 88 and B7 ($452k) 86.
 
 ## Search pipeline
 
@@ -232,3 +233,4 @@ The last step makes the order unique and fully deterministic, which is what make
 5. Are price filters inclusive (`minPrice <= price <= maxPrice`)?
 6. Which fields can feeds omit, and should one bad record fail the whole load or be skipped? (Assumed: all fields required; fail loudly.)
 7. Is there a known weighting between price fit and recency, or a typical days-on-market figure for these markets? (Assumed: 70/30, and one to two months on market is normal.)
+8. Should listings far outside `targetBudget` be hidden, or only ranked lower? (Assumed: ranked lower; `maxPrice` is the way to exclude them.)

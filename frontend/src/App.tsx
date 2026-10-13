@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { searchListings, type SearchParams, type SearchResponse } from "./api";
+import { SearchForm } from "./SearchForm";
 
 function App() {
   const [query, setQuery] = useState<SearchParams>({});
@@ -26,17 +27,14 @@ function App() {
     return () => { ignore = true; };
   }, [query, page]);
 
+  function handleSearch(params: SearchParams) {
+    setQuery(params);
+    setPage(1);
+  }
+
   return (
     <>
-      <button onClick={() => setQuery({ city: "Fairfax" })}>
-        Set city Fairfax
-      </button>
-      <button onClick={() => setPage(1)}>
-        Set Page 1
-      </button>
-      <button onClick={() => setPage(p => p + 1)}>
-        Page++
-      </button>
+      <SearchForm onSearch={handleSearch} />
       <p>Query: {JSON.stringify(query)}</p>
       <p>Page: {page}</p>
       <p>Data: {JSON.stringify(data)}</p>

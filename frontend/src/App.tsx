@@ -7,6 +7,7 @@ import { Pagination } from "./Pagination";
 function App() {
   const [query, setQuery] = useState<SearchParams>({});
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [data, setData] = useState<SearchResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -17,7 +18,7 @@ function App() {
       setLoading(true);
       setError(null);
       try {
-        const response = await searchListings({ ...query, page });
+        const response = await searchListings({ ...query, page, pageSize });
         if (!ignore) setData(response);
       } catch (err) {
         if (!ignore) setError(err instanceof Error ? err.message : String(err));
@@ -29,10 +30,15 @@ function App() {
     return () => {
       ignore = true;
     };
-  }, [query, page]);
+  }, [query, page, pageSize]);
 
   function handleSearch(params: SearchParams) {
     setQuery(params);
+    setPage(1);
+  }
+
+  function handlePageSizeChange(size: number) {
+    setPageSize(size);
     setPage(1);
   }
 
@@ -42,13 +48,26 @@ function App() {
     if (data.results.length === 0) return <p>No listings match your filters</p>;
     return (
       <>
-        <p>{data.totalResults} listings found</p>
+        <div className="results-summary">
+          <p>{data.totalResults} listings found</p>
+          <label>
+            Per page
+            <select
+              value={pageSize}
+              onChange={(e) => handlePageSizeChange(Number(e.target.value))}
+            >
+              <option value={5}>5</option>
+              <option value={10}>10</option>
+              <option value={20}>20</option>
+            </select>
+          </label>
+        </div>
+        <ResultsList results={data.results} />
         <Pagination
           page={data.page}
           totalPages={data.totalPages}
           onPageChange={setPage}
         />
-        <ResultsList results={data.results} />
       </>
     );
   }

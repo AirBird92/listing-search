@@ -68,3 +68,19 @@ button:disabled {
 input {
   font: inherit;
 }
+
+.results-summary {
+  display: flex;
+  justify-content: space-between; /* count on the left, dropdown on the right */
+  align-items: center;
+  margin-top: 16px;
+}
+.results-summary p {
+  margin: 0;
+}
+
+.results-summary label {
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+}

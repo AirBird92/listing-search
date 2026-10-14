@@ -14,7 +14,7 @@ describe("Pagination", () => {
     render(<Pagination page={3} totalPages={3} onPageChange={vi.fn()} />);
 
     expect(screen.getByRole("button", { name: "Next" })).toBeDisabled();
-  })
+  });
 
   it("increments page number when Next is clicked", async () => {
     const onPageChange = vi.fn();
@@ -22,7 +22,7 @@ describe("Pagination", () => {
     await userEvent.click(screen.getByRole("button", { name: "Next" }));
 
     expect(onPageChange).toHaveBeenCalledWith(3);
-  })
+  });
 
   it("decrements page number when Previous is clicked", async () => {
     const onPageChange = vi.fn();
@@ -39,9 +39,9 @@ describe("Pagination", () => {
     expect(screen.getByRole("button", { name: "Next" })).toBeEnabled();
   });
 
-  it("displays Page 2 of 3", () => {
+  it("shows the current page and the total", () => {
     render(<Pagination page={2} totalPages={3} onPageChange={vi.fn()} />);
 
     expect(screen.getByText("Page 2 of 3")).toBeInTheDocument();
-  })
+  });
 });

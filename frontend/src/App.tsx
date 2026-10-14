@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { searchListings, type SearchParams, type SearchResponse } from "./api";
 import { SearchForm } from "./SearchForm";
+import { ResultsList } from "./ResultsList";
 
 function App() {
   const [query, setQuery] = useState<SearchParams>({});
@@ -16,15 +17,17 @@ function App() {
       setError(null);
       try {
         const response = await searchListings({ ...query, page });
-        if (!ignore) setData(response)
+        if (!ignore) setData(response);
       } catch (err) {
-        if (!ignore) setError(err instanceof Error ? err.message : String(err))
+        if (!ignore) setError(err instanceof Error ? err.message : String(err));
       } finally {
-        if (!ignore) setLoading(false)
+        if (!ignore) setLoading(false);
       }
     }
     load();
-    return () => { ignore = true; };
+    return () => {
+      ignore = true;
+    };
   }, [query, page]);
 
   function handleSearch(params: SearchParams) {
@@ -32,14 +35,23 @@ function App() {
     setPage(1);
   }
 
+  function renderResults() {
+    if (error) return <p>{error}</p>;
+    if (!data) return <p>Loading...</p>;
+    if (data.results.length === 0) return <p>No listings match your filters</p>;
+    return (
+      <>
+        <p>{data.totalResults} listings found</p>
+        <ResultsList results={data.results} />
+      </>
+    );
+  }
+
   return (
     <>
       <SearchForm onSearch={handleSearch} />
-      <p>Query: {JSON.stringify(query)}</p>
-      <p>Page: {page}</p>
-      <p>Data: {JSON.stringify(data)}</p>
-      <p>Loading: {JSON.stringify(loading)}</p>
-      <p>Error: {JSON.stringify(error)}</p>
+      {loading && data && <p>Loading...</p>}
+      {renderResults()}
     </>
   );
 }

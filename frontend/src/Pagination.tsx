@@ -22,7 +22,7 @@ export function Pagination({
       <button disabled={page <= 1} onClick={handleClickPrevious}>
         Previous
       </button>
-      Page {page} of {totalPages}
+      <span>Page {page} of {totalPages}</span>
       <button disabled={page >= totalPages} onClick={handleClickNext}>
         Next
       </button>

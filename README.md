@@ -33,11 +33,39 @@ Requires Node.js (LTS). Run from `frontend/`, with the backend already running:
 cd frontend
 npm install
 npm run dev                     # app on http://localhost:5173
+npm test                        # tests in watch mode (npx vitest run: run once)
 npm run lint                    # ESLint
 npm run build                   # type-check and production build
 ```
 
-The frontend calls the API at `http://localhost:8000`, configured once in `src/api.ts`.
+The frontend calls the API at `http://localhost:8000`, configured once in `src/api.ts`. The frontend tests don't need the backend running.
+
+## Testing
+
+**Backend: 195 tests** (pytest), run from `backend/` with `pytest`.
+
+| File                 | Tests | Covers                                                                                   |
+| -------------------- | ----- | ---------------------------------------------------------------------------------------- |
+| `test_loader.py`     | 54    | Parsing every field; missing, empty, wrongly typed or invalid values fail with the listing's `source/id` |
+| `test_filters.py`    | 40    | Filter validation, and each filter on its own, combined, at its boundaries and with no matches |
+| `test_search.py`     | 29    | `SearchRequest` validation and defaults; the whole pipeline end to end                   |
+| `test_scoring.py`    | 28    | Budget fit (the README's example table, tolerance boundaries), recency, combined score   |
+| `test_pagination.py` | 18    | First, middle, partial last and past-the-end pages; zero results; total pages            |
+| `test_api.py`        | 14    | HTTP layer: status codes, camelCase response shape, the 400 error format, CORS           |
+| `test_ranking.py`    | 12    | Ordering by score and every tie-breaker step, using hand-built scores for exact ties     |
+
+Tests use small hand-built listings (shared fixtures in `tests/conftest.py`) rather than the sample file, so expected results are known and don't change when the data does; one smoke test checks that the real sample file loads. "Today" is a fixed date in tests. API tests replace the listings with the same fixtures through FastAPI's `dependency_overrides`.
+
+**Frontend: 26 tests** (Vitest, React Testing Library), run from `frontend/` with `npm test`.
+
+| File                  | Tests | Covers                                                                                      |
+| --------------------- | ----- | ------------------------------------------------------------------------------------------- |
+| `api.test.ts`         | 7     | URL building (unset parameters left out, encoding); success, the API's error message, non-JSON errors, network failure |
+| `SearchForm.test.tsx` | 7     | Empty fields left out, trimming, number conversion, every field wired to the right parameter, Reset |
+| `Pagination.test.tsx` | 6     | Buttons disabled at the edges and enabled in between; Previous and Next report the right page |
+| `App.test.tsx`        | 6     | Results, error and no-results states; the initial request; Next requests page 2; a new search resets to page 1 |
+
+`fetch` is replaced with a fake in the API client tests, and `searchListings` is replaced in the `App` tests, so no backend is needed. Components are found the way a user finds them, by role, label and visible text.
 
 ## Data observations & decisions
 
@@ -370,7 +398,7 @@ TypeScript types are erased at runtime, so they can't verify what the API actual
   - **Top-k instead of a full sort.** A page needs only the best `page × pageSize` results; `heapq.nlargest` finds them in O(m log k) instead of sorting all m matches in O(m log m). The benefit shrinks for deep pages.
   - **Cursor (keyset) pagination.** Because the sort key (score, listed date, source, id) is unique and deterministic, the API can return a cursor ("continue after this key") instead of a page number. Results stay stable when listings change between requests, and deep pages cost the same as early ones.
   - **Caching.** If ranking became expensive, the ranked list could be cached per (filters, budget, day) and pages sliced from it. `SearchFilter` is frozen and therefore hashable, so it can be part of the cache key. Not worth the memory and invalidation complexity at this size.
-- **Frontend tests.** The core logic is covered by the backend tests; the UI is tested by hand. Component tests (Vitest and React Testing Library) would cover, for example, that empty fields are left out of the request and that Next is disabled on the last page.
+- **End-to-end tests.** The frontend tests fake the API and the API tests run without a browser. A browser-driven test (e.g. Playwright) against both running servers would cover the full path in one go.
 - **Client-side validation.** Checks such as `minPrice > maxPrice` currently come back as API errors. Validating in the form too would give faster feedback, with the backend remaining the source of truth.
 - **Configurable API URL.** Read the backend URL from a Vite environment variable (`VITE_API_URL`) instead of a constant, so the same build can point at different environments.
 - **Generated API types.** FastAPI publishes an OpenAPI schema at `/openapi.json`; the TypeScript types could be generated from it instead of written by hand, so they can't drift from the backend.

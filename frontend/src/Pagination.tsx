@@ -18,7 +18,7 @@ export function Pagination({
   }
 
   return (
-    <>
+    <nav className="pagination" aria-label="Pagination">
       <button disabled={page <= 1} onClick={handleClickPrevious}>
         Previous
       </button>
@@ -26,6 +26,6 @@ export function Pagination({
       <button disabled={page >= totalPages} onClick={handleClickNext}>
         Next
       </button>
-    </>
+    </nav>
   );
 }

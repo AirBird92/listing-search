@@ -12,7 +12,7 @@ const priceFormat = new Intl.NumberFormat("en-US", {
 
 export function ResultsList({ results }: ResultsListProps) {
   return (
-    <ul className="results">
+    <>
       <div className="listing header">
         <p>Address</p>
         <p>Price</p>
@@ -21,21 +21,23 @@ export function ResultsList({ results }: ResultsListProps) {
         <p>Relevance Score</p>
         <p>Source</p>
       </div>
-      {results.map((result) => (
-        <li className="listing" key={`${result.source}/${result.id}`}>
-          <p>
-            <p>{result.address}</p>
-            <p>
-              {result.city}, {result.state} {result.zip}
-            </p>
-          </p>
-          <p>{priceFormat.format(result.price)}</p>
-          <p>{result.bedrooms}</p>
-          <p>{result.listedDate}</p>
-          <p>{result.score.toFixed(1)}</p>
-          <p>{result.source}</p>
-        </li>
-      ))}
-    </ul>
+      <ul className="results">
+        {results.map((result) => (
+          <li className="listing" key={`${result.source}/${result.id}`}>
+            <div>
+              <p>{result.address}</p>
+              <p>
+                {result.city}, {result.state} {result.zip}
+              </p>
+            </div>
+            <p>{priceFormat.format(result.price)}</p>
+            <p>{result.bedrooms}</p>
+            <p>{result.listedDate}</p>
+            <p>{result.score.toFixed(1)}</p>
+            <p>{result.source}</p>
+          </li>
+        ))}
+      </ul>
+    </>
   );
 }

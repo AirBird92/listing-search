@@ -336,6 +336,7 @@ Data flows one way: `App` holds the state and passes data down as props; child c
 
 - **Draft vs. submitted search.** The form keeps what the user is typing in its own state. Only clicking Search (or pressing Enter) replaces `App`'s submitted query, and pagination always uses the submitted query. Editing a field without searching never changes the results being paged through.
 - **A new search resets to page 1.**
+- **Reset clears the form but doesn't search.** The current results stay until the user clicks Search, consistent with the form never changing the results until a search is submitted.
 - **Empty fields are left out of the request**, matching the API's rule that blank values are rejected. Number fields are checked for emptiness before conversion, because `Number("")` is `0` and would otherwise send `minPrice=0`.
 - **Fetching runs in a `useEffect`** keyed on the submitted query and page, so changing either triggers exactly one request. On first load it searches with no filters, so results appear immediately.
 - **Stale responses are ignored.** If the user changes the search or page while a request is in flight, the effect's cleanup marks the earlier request as outdated, so a slow response can't overwrite newer results, errors or the loading flag.

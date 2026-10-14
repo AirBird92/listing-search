@@ -23,14 +23,48 @@ label {
 .results {
   list-style: none; /* no bullet points */
   padding: 0;
+  margin: 0;
 }
 .listing {
   display: grid;
-  grid-template-columns: 3fr 1fr 1fr 1fr 1fr 1fr; /* address wider, then 4 equal columns */
+  grid-template-columns: 3fr 1fr 1fr 1fr 1fr 1fr; /* address wider, then 5 equal columns */
   gap: 12px;
   padding: 8px 0;
   border-bottom: 1px solid #ddd;
 }
 .listing p {
   margin: 0; /* remove <p>'s default vertical spacing */
+}
+.header {
+  font-weight: bold;
+}
+
+/* Pagination: centered row above/below the results */
+.pagination {
+  display: flex;
+  justify-content: center; /* center horizontally */
+  align-items: center; /* line the text up with the buttons */
+  gap: 12px;
+  margin-top: 16px;
+}
+
+/* All buttons: search form and pagination alike */
+button {
+  padding: 6px 14px;
+  border: 1px solid #888;
+  border-radius: 6px; /* rounded corners */
+  background: #f5f5f5;
+  font: inherit; /* use the page font, not the browser's default button font */
+  cursor: pointer; /* hand cursor = "clickable" */
+}
+button:hover:not(:disabled) {
+  background: #e6e6e6; /* feedback on hover, only when clickable */
+}
+button:disabled {
+  opacity: 0.5; /* visibly inactive */
+  cursor: not-allowed;
+}
+
+input {
+  font: inherit;
 }

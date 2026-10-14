@@ -43,12 +43,12 @@ function App() {
     return (
       <>
         <p>{data.totalResults} listings found</p>
-        <ResultsList results={data.results} />
         <Pagination
           page={data.page}
           totalPages={data.totalPages}
           onPageChange={setPage}
         />
+        <ResultsList results={data.results} />
       </>
     );
   }

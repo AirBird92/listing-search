@@ -15,15 +15,17 @@ function toNumber(value: string): number | undefined {
   return trimmed ? Number(trimmed) : undefined;
 }
 
-export function SearchForm(props: SearchFormProps) {
-  const [form, setForm] = useState({
-    minPrice: "",
-    maxPrice: "",
-    minBedrooms: "",
-    city: "",
-    keyword: "",
-    targetBudget: "",
-  });
+const EMPTY_FORM = {
+  minPrice: "",
+  maxPrice: "",
+  minBedrooms: "",
+  city: "",
+  keyword: "",
+  targetBudget: "",
+};
+
+export function SearchForm({ onSearch }: SearchFormProps) {
+  const [form, setForm] = useState(EMPTY_FORM);
 
   function handleSubmit(e: SubmitEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -35,7 +37,11 @@ export function SearchForm(props: SearchFormProps) {
       keyword: toText(form.keyword),
       targetBudget: toNumber(form.targetBudget),
     };
-    props.onSearch(searchParams);
+    onSearch(searchParams);
+  }
+
+  function handleReset() {
+    setForm(EMPTY_FORM);
   }
 
   return (
@@ -87,6 +93,9 @@ export function SearchForm(props: SearchFormProps) {
         />
       </label>
       <button type="submit">Search</button>
+      <button type="button" onClick={handleReset}>
+        Reset
+      </button>
     </form>
   );
 }

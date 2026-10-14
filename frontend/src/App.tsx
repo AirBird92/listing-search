@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { searchListings, type SearchParams, type SearchResponse } from "./api";
 import { SearchForm } from "./SearchForm";
 import { ResultsList } from "./ResultsList";
+import { Pagination } from "./Pagination";
 
 function App() {
   const [query, setQuery] = useState<SearchParams>({});
@@ -43,6 +44,11 @@ function App() {
       <>
         <p>{data.totalResults} listings found</p>
         <ResultsList results={data.results} />
+        <Pagination
+          page={data.page}
+          totalPages={data.totalPages}
+          onPageChange={setPage}
+        />
       </>
     );
   }

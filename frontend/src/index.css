@@ -1,0 +1,36 @@
+body {
+  font-family:
+    system-ui, sans-serif; /* the OS's UI font instead of Times New Roman */
+  margin: 0 auto; /* center the page… */
+  max-width: 1100px; /* …and stop lines getting too wide on big screens */
+  padding: 16px;
+}
+
+/* Search form: fields side by side, wrapping onto new lines when narrow */
+form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: end; /* line the button up with the inputs */
+}
+label {
+  display: flex;
+  flex-direction: column; /* label text above its input */
+  font-size: 0.9rem;
+}
+
+/* Results: one row per listing, aligned columns */
+.results {
+  list-style: none; /* no bullet points */
+  padding: 0;
+}
+.listing {
+  display: grid;
+  grid-template-columns: 3fr 1fr 1fr 1fr 1fr 1fr; /* address wider, then 4 equal columns */
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid #ddd;
+}
+.listing p {
+  margin: 0; /* remove <p>'s default vertical spacing */
+}

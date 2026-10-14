@@ -5,7 +5,7 @@ A small full-stack search over property listings ingested from multiple MLS feed
 - **Backend:** Python, FastAPI
 - **Frontend:** React, TypeScript (Vite)
 
-> _Frontend setup: to be added as the project is built._
+The app needs two terminals: the backend API on port 8000 and the frontend dev server on port 5173. Start the backend first, then open http://localhost:5173.
 
 ## Running the backend
 
@@ -24,6 +24,20 @@ ruff format .                   # format
 ```
 
 The listings are loaded from `backend/sample_listings.json` once at startup. If a record is invalid, the server refuses to start and names the listing.
+
+## Running the frontend
+
+Requires Node.js (LTS). Run from `frontend/`, with the backend already running:
+
+```
+cd frontend
+npm install
+npm run dev                     # app on http://localhost:5173
+npm run lint                    # ESLint
+npm run build                   # type-check and production build
+```
+
+The frontend calls the API at `http://localhost:8000`, configured once in `src/api.ts`.
 
 ## Data observations & decisions
 
@@ -304,6 +318,45 @@ Returns `{"status": "ok"}`.
 
 Browser requests are allowed from the frontend's origin, `http://localhost:5173` (Vite's dev server), for `GET` only. The allowed origin is listed explicitly rather than using `*`.
 
+## Frontend
+
+React with TypeScript, built with Vite. Unstyled on purpose: the focus is on calling the API correctly and handling every state.
+
+| File              | Responsibility                                                                 |
+| ----------------- | ------------------------------------------------------------------------------ |
+| `api.ts`          | TypeScript types mirroring the API contract, and `searchListings()`            |
+| `App.tsx`         | Owns the search state, fetches results, and chooses what to show               |
+| `SearchForm.tsx`  | The filter and budget inputs; reports a search through an `onSearch` callback  |
+| `ResultsList.tsx` | Renders one page of results                                                    |
+| `Pagination.tsx`  | Previous / Next and "Page X of Y"; reports changes through `onPageChange`      |
+
+Data flows one way: `App` holds the state and passes data down as props; child components report user actions through callback props and never call the API themselves.
+
+### Search flow
+
+- **Draft vs. submitted search.** The form keeps what the user is typing in its own state. Only clicking Search (or pressing Enter) replaces `App`'s submitted query, and pagination always uses the submitted query. Editing a field without searching never changes the results being paged through.
+- **A new search resets to page 1.**
+- **Empty fields are left out of the request**, matching the API's rule that blank values are rejected. Number fields are checked for emptiness before conversion, because `Number("")` is `0` and would otherwise send `minPrice=0`.
+- **Fetching runs in a `useEffect`** keyed on the submitted query and page, so changing either triggers exactly one request. On first load it searches with no filters, so results appear immediately.
+- **Stale responses are ignored.** If the user changes the search or page while a request is in flight, the effect's cleanup marks the earlier request as outdated, so a slow response can't overwrite newer results, errors or the loading flag.
+
+### What the user sees
+
+Checked in this order:
+
+1. **Error:** the API's `detail` message; "Request failed with status …" if an error response isn't in the API's format; or the browser's network error (e.g. "Failed to fetch") if the server can't be reached
+2. **Nothing loaded yet:** "Loading…"
+3. **No results:** "No listings match your filters" (an empty search is not an error)
+4. **Results:** the total count, the result list and pagination
+
+The error is checked before "nothing loaded yet": if the very first request fails there is no data, and showing "Loading…" would hide the failure forever. While a new search loads, the previous results stay on screen with a "Loading…" note, so the page doesn't jump.
+
+Each result shows its address, price, bedrooms, relevance score and source. The score is rounded to one decimal place here, for display only. Results are shown in the order the API returns them and never re-sorted, since sorting by the rounded score could reorder near-ties. Each list item is keyed by `source/id`, because `id` alone isn't unique across feeds.
+
+The Previous and Next buttons are disabled on the first and last page, so users don't reach the empty page beyond the end. They are based on the page the server actually returned, so a fast double-click can't skip a page.
+
+TypeScript types are erased at runtime, so they can't verify what the API actually sends. `api.ts` mirrors the API contract by hand and has to be kept in sync with `schemas.py`. The error path checks the shape of the response body explicitly for the same reason.
+
 ## Future work
 
 - **Cross-feed deduplication.** Group records into one Property containing its source listings, and show one card per home with each feed's price.
@@ -316,6 +369,10 @@ Browser requests are allowed from the frontend's origin, `http://localhost:5173`
   - **Top-k instead of a full sort.** A page needs only the best `page × pageSize` results; `heapq.nlargest` finds them in O(m log k) instead of sorting all m matches in O(m log m). The benefit shrinks for deep pages.
   - **Cursor (keyset) pagination.** Because the sort key (score, listed date, source, id) is unique and deterministic, the API can return a cursor ("continue after this key") instead of a page number. Results stay stable when listings change between requests, and deep pages cost the same as early ones.
   - **Caching.** If ranking became expensive, the ranked list could be cached per (filters, budget, day) and pages sliced from it. `SearchFilter` is frozen and therefore hashable, so it can be part of the cache key. Not worth the memory and invalidation complexity at this size.
+- **Frontend tests.** The core logic is covered by the backend tests; the UI is tested by hand. Component tests (Vitest and React Testing Library) would cover, for example, that empty fields are left out of the request and that Next is disabled on the last page.
+- **Client-side validation.** Checks such as `minPrice > maxPrice` currently come back as API errors. Validating in the form too would give faster feedback, with the backend remaining the source of truth.
+- **Configurable API URL.** Read the backend URL from a Vite environment variable (`VITE_API_URL`) instead of a constant, so the same build can point at different environments.
+- **Generated API types.** FastAPI publishes an OpenAPI schema at `/openapi.json`; the TypeScript types could be generated from it instead of written by hand, so they can't drift from the backend.
 - **Dependency lock file.** `requirements.txt` pins only the direct dependencies. Add a full lock file (e.g. uv or pip-tools) for fully reproducible installs.
 
 ## Clarifying questions
